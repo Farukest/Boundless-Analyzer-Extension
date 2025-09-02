@@ -1,0 +1,10 @@
+# Boundless Analyzer Privacy Policy
+
+## Data Collection
+- We do not collect any personal data
+- Your Etherscan API key is stored locally in your browser only
+- No data is transmitted to our servers
+
+## Third Party Services  
+- Uses Etherscan API with your own API key
+- Uses CoinGecko API for ETH price (anonymous)
