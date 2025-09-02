@@ -1,16 +1,15 @@
-# Access Boundless explorer pages (explorer.beboundless.xyz) to analyze transaction data and add interactive tooltips to order tables.
-# Analyzes gas fees and transaction costs for Boundless orders with detailed cost breakdowns and hover tooltips.
+🍓 Go to your Boundless Prover Page
+🍓 Click the Boundles Analyzer on Extensions
+🍓 Get Etherscan API Key from the Link existed
+🍓 Enter your Etherscan API Key
+🍓 Hit "Run Analysis" and Wait a Little Bit
 
-# Stores user's Etherscan API key locally for persistent access across browser sessions.
+🫐 Move your mouse on any order
+🫐 You will see your order's useful detailed datas
 
+🍒 How much fail occured before "order" locked
+🍒 How much spent for that order 
+🍒 How much failed TXs spent for locking that order
 
-# Boundless Analyzer Privacy Policy
-
-## Data Collection
-- We do not collect any personal data
-- Your Etherscan API key is stored locally in your browser only
-- No data is transmitted to our servers
-
-## Third Party Services  
-- Uses Etherscan API with your own API key
-- Uses CoinGecko API for ETH price (anonymous)
+✅ It works on any prover page
+✅ It doesn't need anything then your Etherscan API KEY
