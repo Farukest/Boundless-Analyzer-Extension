@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Boundless Analyzer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 380px;
+            height: 280px;
+            background: linear-gradient(135deg, #f8f6f0 0%, #f1ede4 100%);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 24px;
+            color: #3d3929;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+
+        .header h1 {
+            font-size: 20px;
+            font-weight: 600;
+            color: #2d2821;
+            margin-bottom: 4px;
+        }
+
+        .header p {
+            font-size: 13px;
+            color: #6b6654;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            color: #3d3929;
+            margin-bottom: 8px;
+        }
+
+        .input-container {
+            position: relative;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px 50px 12px 16px;
+            border: 2px solid #e5e0d3;
+            border-radius: 12px;
+            font-size: 14px;
+            background: white;
+            color: #2d2821;
+            transition: all 0.2s ease;
+        }
+
+        .toggle-btn {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            padding: 4px;
+            border-radius: 6px;
+            transition: background 0.2s ease;
+            user-select: none;
+        }
+
+        .toggle-btn:hover {
+            background: rgba(212, 175, 55, 0.1);
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #d4af37;
+            box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
+        }
+
+        .api-link {
+            display: inline-flex;
+            align-items: center;
+            font-size: 12px;
+            color: #8b7355;
+            text-decoration: none;
+            margin-top: 6px;
+            transition: color 0.2s ease;
+        }
+
+        .api-link:hover {
+            color: #d4af37;
+        }
+
+        .api-link::before {
+            content: "🔗";
+            margin-right: 4px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #d4af37 0%, #b8941f 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(212, 175, 55, 0.4);
+        }
+
+        .btn-secondary {
+            background: white;
+            color: #6b6654;
+            border: 2px solid #e5e0d3;
+        }
+
+        .btn-secondary:hover {
+            background: #f8f6f0;
+            border-color: #d4af37;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+
+        .status {
+            margin-top: 16px;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            text-align: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .status.show {
+            opacity: 1;
+        }
+
+        .status.success {
+            background: rgba(74, 222, 128, 0.1);
+            color: #166534;
+            border: 1px solid rgba(74, 222, 128, 0.3);
+        }
+
+        .status.error {
+            background: rgba(239, 68, 68, 0.1);
+            color: #dc2626;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top: 2px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading {
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Boundless Analyzer</h1>
+        <p>Gas fee analysis for your orders</p>
+    </div>
+
+    <div class="form-group">
+        <label for="api-key">Etherscan API Key</label>
+        <div class="input-container">
+            <input 
+                type="password" 
+                id="api-key" 
+                placeholder="Enter your Etherscan API key..."
+                autocomplete="new-password"
+            >
+            <button type="button" id="toggle-visibility" class="toggle-btn">
+                👁️
+            </button>
+        </div>
+        <a href="https://etherscan.io/apis" target="_blank" class="api-link">
+            Get API key from Etherscan
+        </a>
+    </div>
+
+    <div class="button-group">
+        <button id="save-btn" class="btn btn-secondary">Save</button>
+        <button id="run-btn" class="btn btn-primary">
+            <div class="loading">
+                <div class="spinner"></div>
+                Running...
+            </div>
+            <span class="btn-text">Run Analysis</span>
+        </button>
+    </div>
+
+    <div id="status" class="status"></div>
+
+    <script src="popup.js"></script>
+</body>
+</html>

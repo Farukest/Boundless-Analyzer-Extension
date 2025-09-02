@@ -1,0 +1,38 @@
+{
+  "manifest_version": 3,
+  "name": "Boundless Analyzer",
+  "version": "1.0",
+  "description": "Track your orders in more detail in a practical way",
+  "permissions": [
+    "storage",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://explorer.beboundless.xyz/*",
+    "https://api.etherscan.io/*",
+    "https://api.coingecko.com/*",
+    "https://eth.llamarpc.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://explorer.beboundless.xyz/provers/*"],
+      "js": ["ethers.min.js", "content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["ethers.min.js"],
+      "matches": ["https://explorer.beboundless.xyz/*"]
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Boundless Analyzer"
+  },
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  }
+}

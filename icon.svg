@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f8f6f0;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#f1ede4;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#d4af37;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#b8941f;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="64" cy="64" r="60" fill="url(#bg)" stroke="url(#accent)" stroke-width="3"/>
+  
+  <!-- Chart bars -->
+  <rect x="32" y="50" width="8" height="35" fill="url(#accent)" rx="2"/>
+  <rect x="44" y="42" width="8" height="43" fill="url(#accent)" rx="2"/>
+  <rect x="56" y="38" width="8" height="47" fill="url(#accent)" rx="2"/>
+  <rect x="68" y="45" width="8" height="40" fill="url(#accent)" rx="2"/>
+  <rect x="80" y="40" width="8" height="45" fill="url(#accent)" rx="2"/>
+  <rect x="92" y="35" width="8" height="50" fill="url(#accent)" rx="2"/>
+  
+  <!-- Ethereum symbol -->
+  <path d="M64 15 L52 58 L64 66 L76 58 Z" fill="#2d2821" opacity="0.7"/>
+  <path d="M64 70 L52 62 L64 95 L76 62 Z" fill="#2d2821" opacity="0.7"/>
+</svg>
