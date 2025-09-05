@@ -6,12 +6,31 @@ document.addEventListener('DOMContentLoaded', async () => {
     const status = document.getElementById('status');
     const loading = runBtn.querySelector('.loading');
     const btnText = runBtn.querySelector('.btn-text');
+    const txLimitSlider = document.getElementById('tx-limit');
+    const sliderValue = document.getElementById('slider-value');
 
-    // Kaydedilen API key'i yükle
-    const result = await chrome.storage.sync.get(['etherscanApiKey']);
+    // Kaydedilen değerleri yükle
+    const result = await chrome.storage.sync.get(['etherscanApiKey', 'txLimit']);
     if (result.etherscanApiKey) {
         apiKeyInput.value = result.etherscanApiKey;
     }
+    if (result.txLimit) {
+        txLimitSlider.value = result.txLimit;
+    }
+
+    // Slider değerini güncelle
+    function updateSliderValue(value) {
+        const offset = value * 10;
+        sliderValue.textContent = `${offset} transactions`;
+    }
+
+    // İlk yüklemede slider değerini güncelle
+    updateSliderValue(txLimitSlider.value);
+
+    // Slider değiştiğinde güncelle
+    txLimitSlider.addEventListener('input', (e) => {
+        updateSliderValue(e.target.value);
+    });
 
     // Password visibility toggle
     toggleBtn.addEventListener('click', () => {
@@ -33,9 +52,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         }, 3000);
     }
 
-    // API key kaydet
+    // API key ve tx limit kaydet
     saveBtn.addEventListener('click', async () => {
         const apiKey = apiKeyInput.value.trim();
+        const txLimit = txLimitSlider.value;
         
         if (!apiKey) {
             showStatus('Please enter an API key', 'error');
@@ -43,16 +63,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         try {
-            await chrome.storage.sync.set({ etherscanApiKey: apiKey });
-            showStatus('API key saved successfully!', 'success');
+            await chrome.storage.sync.set({ 
+                etherscanApiKey: apiKey,
+                txLimit: txLimit
+            });
+            showStatus('Settings saved successfully!', 'success');
         } catch (error) {
-            showStatus('Error saving API key', 'error');
+            showStatus('Error saving settings', 'error');
         }
     });
 
     // Analizi çalıştır
     runBtn.addEventListener('click', async () => {
         const apiKey = apiKeyInput.value.trim();
+        const txLimit = txLimitSlider.value;
         
         if (!apiKey) {
             showStatus('Please enter and save your API key first', 'error');
@@ -89,7 +113,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Content script'e mesaj gönder
             const response = await chrome.tabs.sendMessage(tab.id, {
                 action: 'runAnalysis',
-                apiKey: apiKey
+                apiKey: apiKey,
+                txLimit: txLimit
             });
 
             showStatus('Analysis started! Check the page.', 'success');

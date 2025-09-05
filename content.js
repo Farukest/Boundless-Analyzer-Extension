@@ -17,7 +17,14 @@
     let orderData = new Map();
     let tooltip = null;
     let tableOrderIds = [];
+    let orderIds = [];
     let loadingOverlay = null;
+	
+	let isSelecting = false;
+	let selectedRows = new Set();
+	let selectionStartRow = null;
+	let summaryPopup = null;
+
 
     // Loading overlay oluştur
     function createLoadingOverlay() {
@@ -164,41 +171,76 @@
         return match ? match[1] : null;
     }
 
-    // Order ID'leri tablodan çıkar
-    function extractOrderIds() {
-        updateProgress('Extracting order IDs from table...');
-        const orderIds = [];
-        const table = document.querySelector('table.w-full');
-        
-        if (!table) {
-            console.log('❌ Tablo bulunamadı');
-            return orderIds;
-        }
 
-        const rows = table.querySelectorAll('tbody tr');
-        console.log(`📊 ${rows.length} satır bulundu`);
-        
-        rows.forEach((row, index) => {
-            const firstTd = row.querySelector('td:first-child');
-            if (firstTd) {
-                const span = firstTd.querySelector('div a span[title]');
-                if (span) {
-                    const orderIdText = span.getAttribute('title');
-                    if (orderIdText && orderIdText.startsWith('0x')) {
-                        orderIds.push({
-                            orderId: orderIdText,
-                            row: row,
-                            index: index
-                        });
-                    }
-                }
-            }
-        });
-
-        tableOrderIds = orderIds.map(o => o.orderId);
-        updateProgress(`Found ${tableOrderIds.length} orders in table ✅`);
+// REPLACE extractOrderIds function with this:
+function extractOrderIds() {
+    updateProgress('Extracting order IDs and cycles from table...');
+    const table = document.querySelector('table.w-full');
+    
+    if (!table) {
+        console.log('❌ Tablo bulunamadı');
         return orderIds;
     }
+
+    const rows = table.querySelectorAll('tbody tr');
+    console.log(`📊 ${rows.length} satır bulundu`);
+    
+    rows.forEach((row, index) => {
+        const firstTd = row.querySelector('td:first-child');
+        if (firstTd) {
+            const span = firstTd.querySelector('div a span[title]');
+            if (span) {
+                const orderIdText = span.getAttribute('title');
+                
+                // Extract cycles from 6th column
+                const tds = row.querySelectorAll('td');
+                let cycles = 0;
+                if (tds.length >= 6) {
+                    const cyclesText = tds[5].textContent.trim(); // 6th column (index 5)
+					console.log("cyclesText :", cyclesText);
+                    cycles = parseCycles(cyclesText);
+                }
+                
+                if (orderIdText && orderIdText.startsWith('0x')) {
+                    orderIds.push({
+                        orderId: orderIdText,
+                        row: row,
+                        index: index,
+                        cycles: cycles
+                    });
+                }
+            }
+        }
+    });
+
+    tableOrderIds = orderIds.map(o => o.orderId);
+    updateProgress(`Found ${tableOrderIds.length} orders in table ✅`);
+    return orderIds;
+}
+		
+	// Helper function to parse cycles text (ADD THIS)
+	function parseCycles(cyclesText) {
+		if (!cyclesText) return 0;
+		
+		const text = cyclesText.trim().toUpperCase();
+		
+		// Handle different formats: 12B, 5.2K, 1.5M, etc.
+		const match = text.match(/^(\d+(?:\.\d+)?)([KMBTQ]?)$/);
+		if (!match) return 0;
+		
+		const number = parseFloat(match[1]);
+		const suffix = match[2];
+		
+		const multipliers = {
+			'K': 1000,
+			'M': 1000000,
+			'B': 1000000000,
+			'T': 1000000000000,
+			'Q': 1000000000000000
+		};
+		
+		return number * (multipliers[suffix] || 1);
+	}
 
     // Tooltip oluştur
     function createTooltip() {
@@ -274,75 +316,366 @@
     }
 
     // Tooltip gizle
-    function hideTooltip() {
-        if (tooltip) {
-            tooltip.style.opacity = '0';
+	function hideTooltip() {
+		if (tooltip && !isSelecting) {
+			tooltip.style.opacity = '0';
+		}
+	}
+	
+	// Selection başlat
+	function startSelection(event, row) {
+		event.preventDefault();
+		isSelecting = true;
+		selectionStartRow = row;
+		selectedRows.clear();
+		selectedRows.add(row);
+		
+		// Hide tooltip during selection
+		hideTooltip();
+		hideSummaryPopup();
+		
+		updateRowHighlight(row, true);
+		document.body.style.userSelect = 'none';
+	}
+
+	// Selection güncelle
+	function updateSelection(row) {
+		if (!isSelecting || !selectionStartRow) return;
+		
+		// Clear previous selection highlights
+		selectedRows.forEach(r => updateRowHighlight(r, false));
+		selectedRows.clear();
+		
+		const table = document.querySelector('table.w-full tbody');
+		const rows = Array.from(table.querySelectorAll('tr'));
+		
+		const startIndex = rows.indexOf(selectionStartRow);
+		const currentIndex = rows.indexOf(row);
+		
+		const minIndex = Math.min(startIndex, currentIndex);
+		const maxIndex = Math.max(startIndex, currentIndex);
+		
+		// Select rows in range
+		for (let i = minIndex; i <= maxIndex; i++) {
+			const targetRow = rows[i];
+			const orderId = targetRow.getAttribute('data-order-id');
+			
+			if (orderId && orderData.has(orderId)) {
+				selectedRows.add(targetRow);
+				updateRowHighlight(targetRow, true);
+			}
+		}
+	}
+
+	// Selection bitir
+	function endSelection(event) {
+		if (!isSelecting) return;
+		
+		isSelecting = false;
+		document.body.style.userSelect = '';
+		
+		if (selectedRows.size > 1) {
+			showSummaryPopup(event);
+		} else {
+			// Clear single selection
+			selectedRows.forEach(row => updateRowHighlight(row, false));
+			selectedRows.clear();
+		}
+		
+		selectionStartRow = null;
+	}
+
+	// Row highlight güncelle
+	function updateRowHighlight(row, isSelected) {
+		if (isSelected) {
+			row.style.backgroundColor = 'rgba(212, 175, 55, 0.2)';
+			row.style.borderLeft = '4px solid #d4af37';
+		} else {
+			row.style.backgroundColor = '';
+			row.style.borderLeft = '';
+		}
+	}
+	
+	// UPDATE showSummaryPopup function - add total cycles:
+function showSummaryPopup(event) {
+    if (selectedRows.size === 0) return;
+
+    const popup = createSummaryPopup();
+    
+    let totalLockFee = 0;
+    let totalFailFee = 0;
+    let totalFails = 0;
+    let totalCycles = 0;
+    let orderCount = 0;
+    
+    selectedRows.forEach(row => {
+        const orderId = row.getAttribute('data-order-id');
+        const data = orderData.get(orderId);
+		console.log("data");
+		console.log(data);
+        if (data) {
+            totalLockFee += data.lockFee;
+            totalFailFee += data.totalFailFee;
+            totalFails += data.failTries;
+            totalCycles += data.cycles;
+            orderCount++;
         }
-    }
+    });
+    
+    const lockFeeUsd = (totalLockFee * ethPrice).toFixed(2);
+    const failFeeUsd = (totalFailFee * ethPrice).toFixed(2);
+    const totalCostUsd = ((totalLockFee + totalFailFee) * ethPrice).toFixed(2);
+    
+    // Format total cycles
+    const formatCycles = (cycles) => {
+        if (cycles >= 1000000000000000) return (cycles / 1000000000000000).toFixed(1) + 'Q';
+        if (cycles >= 1000000000000) return (cycles / 1000000000000).toFixed(1) + 'T';
+        if (cycles >= 1000000000) return (cycles / 1000000000).toFixed(1) + 'B';
+        if (cycles >= 1000000) return (cycles / 1000000).toFixed(1) + 'M';
+        if (cycles >= 1000) return (cycles / 1000).toFixed(1) + 'K';
+        return cycles.toLocaleString();
+    };
+    
+    const content = `
+        <div style="margin-bottom: 12px;">
+            <strong style="color: #ffd700;">${orderCount} orders selected</strong>
+        </div>
+        <div style="margin-bottom: 8px;">
+            🔒 Total lock fees: <strong>$${lockFeeUsd}</strong> (${totalLockFee.toFixed(6)} ETH)
+        </div>
+        <div style="margin-bottom: 8px;">
+            ❌ Total fail fees: <strong>$${failFeeUsd}</strong> (${totalFailFee.toFixed(6)} ETH)
+        </div>
+        <div style="margin-bottom: 8px;">
+            🔢 Total fails: <strong>${totalFails}</strong>
+        </div>
+        <div style="font-size: 16px; font-weight: bold; color: #ffd700; margin-top: 12px;">
+            🔄 TOTAL CYCLES: ${formatCycles(totalCycles)}
+        </div>
+		<div style="font-size: 16px; font-weight: bold; color: #ffd700; margin-top: 12px;">
+            💸 TOTAL COST: $${totalCostUsd}
+        </div>
+    `;
+    
+    popup.querySelector('#summary-content').innerHTML = content;
+    popup.style.opacity = '1';
+}
+	
+	
+	// Summary popup oluştur
+	function createSummaryPopup() {
+		if (summaryPopup) return summaryPopup;
 
-    // Hover event'leri ekle
-    function addHoverEvents() {
-        updateProgress('Adding hover events...');
-        const table = document.querySelector('table.w-full');
-        if (!table) {
-            console.log('❌ Tablo bulunamadı - hover events eklenemedi');
-            return;
-        }
+		summaryPopup = document.createElement('div');
+		summaryPopup.style.cssText = `
+			position: fixed;
+			background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+			color: white;
+			padding: 20px 24px;
+			border-radius: 16px;
+			font-size: 14px;
+			font-weight: 500;
+			box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+			z-index: 10000;
+			pointer-events: auto;
+			border: 1px solid rgba(255,255,255,0.1);
+			opacity: 0;
+			transition: opacity 0.3s ease;
+			width: 370px;
+			line-height: 1.4;
+			backdrop-filter: blur(15px);
+			top: 50%;
+			left: 50%;
+			transform: translate(-50%, -50%);
+		`;
+		
+		summaryPopup.innerHTML = `
+			<div style="display: flex; justify-content: between; align-items: center; margin-bottom: 16px;">
+				<h3 style="font-size: 16px; font-weight: bold; color: #ffd700; margin: 0;">📊 Selection Summary</h3>
+				<button id="close-summary" style="
+					background: none;
+					border: none;
+					color: #94a3b8;
+					font-size: 18px;
+					cursor: pointer;
+					padding: 4px;
+					margin-left: auto;
+				">✕</button>
+			</div>
+			<div id="summary-content"></div>
+			<div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.2);">
+				<button id="clear-selection" style="
+					background: rgba(239, 68, 68, 0.2);
+					border: 1px solid rgba(239, 68, 68, 0.3);
+					color: #fca5a5;
+					padding: 8px 16px;
+					border-radius: 8px;
+					font-size: 12px;
+					cursor: pointer;
+					width: 100%;
+				">Clear Selection</button>
+			</div>
+		`;
+		
+		document.body.appendChild(summaryPopup);
+		
+		// Event listeners
+		summaryPopup.querySelector('#close-summary').addEventListener('click', hideSummaryPopup);
+		summaryPopup.querySelector('#clear-selection').addEventListener('click', clearSelection);
+		
+		return summaryPopup;
+	}
 
-        const rows = table.querySelectorAll('tbody tr');
-        let addedCount = 0;
-        
-        rows.forEach((row, index) => {
-            const firstTd = row.querySelector('td:first-child');
-            if (firstTd) {
-                const span = firstTd.querySelector('div a span[title]');
-                if (span) {
-                    const orderId = span.getAttribute('title');
-                    
-                    if (orderData.has(orderId)) {
-                        row.addEventListener('mouseenter', (event) => {
-                            showTooltip(event, orderId);
-                        });
 
-                        row.addEventListener('mouseleave', hideTooltip);
-                        
-                        row.style.cursor = 'pointer';
-                        row.style.transition = 'background-color 0.2s ease';
-                        
-                        row.addEventListener('mouseenter', () => {
-                            row.style.backgroundColor = 'rgba(212, 175, 55, 0.1)';
-                        });
-                        
-                        row.addEventListener('mouseleave', () => {
-                            row.style.backgroundColor = '';
-                        });
-                        
-                        if (!row.querySelector('.analysis-indicator')) {
-                            const indicator = document.createElement('span');
-                            indicator.className = 'analysis-indicator';
-                            indicator.style.cssText = `
-                                position: absolute;
-                                right: 10px;
-                                top: 50%;
-                                transform: translateY(-50%);
-                                width: 8px;
-                                height: 8px;
-                                background: #4ade80;
-                                border-radius: 50%;
-                                animation: pulse 2s infinite;
-                                z-index: 100;
-                            `;
-                            row.style.position = 'relative';
-                            row.appendChild(indicator);
-                        }
-                        addedCount++;
-                    }
-                }
-            }
-        });
+// UPDATE showTooltip function - add cycles info:
+function showTooltip(event, orderId) {
+    const data = orderData.get(orderId);
+    if (!data) return;
 
-        updateProgress(`Added hover events to ${addedCount} rows ✅`);
-    }
+    const tooltip = createTooltip();
+    
+    const lockFeeUsd = (data.lockFee * ethPrice).toFixed(2);
+    const totalFailFeeUsd = (data.totalFailFee * ethPrice).toFixed(2);
+    const totalCostUsd = ((data.lockFee + data.totalFailFee) * ethPrice).toFixed(2);
+
+    // Format cycles for display
+    const formatCycles = (cycles) => {
+        if (cycles >= 1000000000000000) return (cycles / 1000000000000000).toFixed(1) + 'Q';
+        if (cycles >= 1000000000000) return (cycles / 1000000000000).toFixed(1) + 'T';
+        if (cycles >= 1000000000) return (cycles / 1000000000).toFixed(1) + 'B';
+        if (cycles >= 1000000) return (cycles / 1000000).toFixed(1) + 'M';
+        if (cycles >= 1000) return (cycles / 1000).toFixed(1) + 'K';
+        return cycles.toString();
+    };
+
+    const content = `
+        <div style="font-weight: bold; margin-bottom: 8px; color: #ffd700;">
+            💎 ${orderId.substring(0, 10)}...${orderId.substring(orderId.length - 8)}
+        </div>
+        <div style="margin-bottom: 4px;">
+            🔄 Cycles: <strong>${formatCycles(data.cycles)}</strong>
+        </div>
+        <div style="margin-bottom: 4px;">
+            🔒 Lock fee: <strong>$${lockFeeUsd}</strong> (${data.lockFee.toFixed(6)} ETH)
+        </div>
+        <div style="margin-bottom: 4px;">
+            ❌ ${data.failTries} fails: <strong>$${totalFailFeeUsd}</strong> (${data.totalFailFee.toFixed(6)} ETH)
+        </div>
+        <div style="margin-bottom: 4px; font-size: 11px; opacity: 0.8;">
+            📄 Success TX: ${data.txHash.substring(0, 10)}...
+        </div>
+        <div style="border-top: 1px solid rgba(255,255,255,0.3); padding-top: 4px; margin-top: 6px;">
+            💸 Total cost: <strong>$${totalCostUsd}</strong>
+        </div>
+    `;
+    
+    tooltip.querySelector('.tooltip-content').innerHTML = content;
+
+    const rect = event.target.closest('tr').getBoundingClientRect();
+    const tooltipWidth = tooltip.offsetWidth;
+    const tooltipHeight = tooltip.offsetHeight;
+
+    tooltip.style.left = (rect.left + (rect.width / 2) - (tooltipWidth / 2)) + 'px';
+    tooltip.style.top = (rect.top + window.scrollY + (rect.height / 2) - (tooltipHeight / 2)) + 'px';
+    tooltip.style.opacity = '1';
+}
+
+	// Summary popup gizle ve selection temizle
+	function hideSummaryPopup() {
+		if (summaryPopup) {
+			summaryPopup.style.opacity = '0';
+		}
+		// Selection'ı temizle
+		selectedRows.forEach(row => updateRowHighlight(row, false));
+		selectedRows.clear();
+	}
+
+	// Selection temizle (sadece hideSummaryPopup çağırır)
+	function clearSelection() {
+		hideSummaryPopup();
+	}
+
+	// Selection temizle
+	function clearSelection() {
+		selectedRows.forEach(row => updateRowHighlight(row, false));
+		selectedRows.clear();
+		hideSummaryPopup();
+	}
+	
+	
+	// Hover event'leri ekle
+	function addHoverEvents() {
+		updateProgress('Adding hover events...');
+		const table = document.querySelector('table.w-full');
+		if (!table) {
+			console.log('❌ Tablo bulunamadı - hover events eklenemedi');
+			return;
+		}
+
+		const rows = table.querySelectorAll('tbody tr');
+		let addedCount = 0;
+		
+		rows.forEach((row, index) => {
+			const firstTd = row.querySelector('td:first-child');
+			if (firstTd) {
+				const span = firstTd.querySelector('div a span[title]');
+				if (span) {
+					const orderId = span.getAttribute('title');
+					
+					if (orderData.has(orderId)) {
+						// Mouse events for selection
+						row.addEventListener('mousedown', (event) => {
+							startSelection(event, row);
+						});
+
+						row.addEventListener('mouseenter', (event) => {
+							if (isSelecting) {
+								updateSelection(row);
+							} else {
+								showTooltip(event, orderId);
+							}
+						});
+
+						row.addEventListener('mouseleave', () => {
+							if (!isSelecting) {
+								hideTooltip();
+							}
+						});
+						
+						row.style.cursor = 'pointer';
+						row.style.transition = 'background-color 0.2s ease';
+						row.setAttribute('data-order-id', orderId);
+						
+						if (!row.querySelector('.analysis-indicator')) {
+							const indicator = document.createElement('span');
+							indicator.className = 'analysis-indicator';
+							indicator.style.cssText = `
+								position: absolute;
+								right: 10px;
+								top: 50%;
+								transform: translateY(-50%);
+								width: 8px;
+								height: 8px;
+								background: #4ade80;
+								border-radius: 50%;
+								animation: pulse 2s infinite;
+								z-index: 100;
+							`;
+							row.style.position = 'relative';
+							row.appendChild(indicator);
+						}
+						addedCount++;
+					}
+				}
+			}
+		});
+
+		// Global mouse events for selection
+		document.addEventListener('mouseup', endSelection);
+		document.addEventListener('mouseleave', endSelection);
+
+		updateProgress(`Added hover events to ${addedCount} rows ✅`);
+	}
 
     // Styles ekle
     function addStyles() {
@@ -387,11 +720,13 @@
     }
 
     // Transaction'ları analiz et
-    async function analyzeLockRequests(walletAddress, apiKey) {
+    async function analyzeLockRequests(walletAddress, apiKey, txLimit) {
         try {
             updateProgress('Fetching transaction history...');
             
-            const txHistoryUrl = `${CONFIG.ETHERSCAN_API}?chainid=8453&module=account&action=txlist&address=${walletAddress}&page=1&offset=1300&sort=desc&apikey=${apiKey}`;
+			const offset = txLimit * 10;
+			
+			const txHistoryUrl = `${CONFIG.ETHERSCAN_API}?chainid=8453&module=account&action=txlist&address=${walletAddress}&page=1&offset=${offset}&sort=desc&apikey=${apiKey}`;
             
             const response = await fetch(txHistoryUrl);
             const data = await response.json();
@@ -507,6 +842,7 @@
                 });
 
                 // Data'yı kaydet
+				const orderInfo = orderIds.find(o => o.orderId === matchingId);
                 orderData.set(matchingId, {
                     lockFee: successTx.feeEth,
                     failTries: failsBetween.length,
@@ -514,7 +850,8 @@
                     txHash: successTx.txHash,
                     failTxHashes: failTxHashes,
                     timestamp: new Date(successTx.timestamp * 1000),
-                    requestId: successTx.orderId
+                    requestId: successTx.orderId,
+					cycles: orderInfo ? orderInfo.cycles : 0  // Add cycles data
                 });
             }
 
@@ -528,7 +865,7 @@
     }
 
     // Ana analiz fonksiyonu
-    async function runAnalysis(apiKey) {
+    async function runAnalysis(apiKey, txLimit) {
         try {
             // Loading overlay göster
             loadingOverlay = createLoadingOverlay();
@@ -547,12 +884,12 @@
 
             await getEthPrice();
             
-            const orderIds = extractOrderIds();
+            orderIds = extractOrderIds();
             if (orderIds.length === 0) {
                 throw new Error('No orders found in table');
             }
 
-            await analyzeLockRequests(walletAddress, apiKey);
+            await analyzeLockRequests(walletAddress, apiKey, txLimit);
             
             updateProgress('Adding interactive features...');
             addHoverEvents();
@@ -597,12 +934,12 @@
     }
 
     // Extension'dan mesaj dinle
-    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-        if (request.action === 'runAnalysis') {
-            runAnalysis(request.apiKey);
-            sendResponse({ success: true });
-        }
-    });
+	chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+		if (request.action === 'runAnalysis') {
+			runAnalysis(request.apiKey, request.txLimit);
+			sendResponse({ success: true });
+		}
+	});
 
     console.log('🚀 Boundless Analyzer content script loaded');
 })();

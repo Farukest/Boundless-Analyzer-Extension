@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Boundless Analyzer",
-  "version": "1.0",
+  "version": "1.1",
   "description": "Track your orders in more detail in a practical way",
   "permissions": [
     "storage",
